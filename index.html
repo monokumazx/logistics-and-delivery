@@ -230,8 +230,7 @@
                         <p class="timeline-sub-item">漏送 <span class="text-gray-500">(missing items)</span></p>
                         <p class="timeline-sub-item">延迟 <span class="text-gray-500">(delay)</span></p>
                         <p class="timeline-sub-item">退款 <span class="text-gray-500">(refund)</span></p>
-                        <p class="timeline-sub-item">差评 <span class="text-gray-500">(negative review)</span></p>
-                        <p class="timeline-sub-item">准时宝 <span class="text-gray-500">(on-time guarantee insurance)</span></p>
+                        <p class="timeline-sub-item">延误险 <span class="text-gray-500">(on-time guarantee insurance)</span></p>
                         <p class="timeline-sub-item">配送异常 <span class="text-gray-500">(delivery exception)</span></p>
                     </div>
                 </div>
@@ -325,7 +324,7 @@
             { category: "快递相关人员", chinese: "快递服务组织", pinyin: "kuài dì fú wù zǔ zhī", english: "express service organization", description: "提供快递服务的机构或公司。", english_description: "An institution or company that provides express delivery services." },
             { category: "快递相关人员", chinese: "快递业务员", pinyin: "kuài dì yè wù yuán", english: "operational express service provider", description: "从事快递业务操作的人员。", english_description: "Personnel engaged in express service operations." },
             { category: "快递相关人员", chinese: "收派员", pinyin: "shōu pài yuán", english: "courier", description: "负责收取和派送快件的人员。", english_description: "Personnel responsible for picking up and delivering express items." },
-            { category: "快递相关人员", chinese: "处理员", pinyin: "chǔ lǐ yuán", english: "express item operator", description: "负责快件处理、分拣等操作的人员。", english_description: "Personnel responsible for express item processing, sorting, and other operations." },
+            { category: "快递相关人员", chinese: "处理员", pinyin: "chǔ lì yuán", english: "express item operator", description: "负责快件处理、分拣等操作的人员。", english_description: "Personnel responsible for express item processing, sorting, and other operations." },
             { category: "快递相关人员", chinese: "客服人员", pinyin: "kè fú rén yuán", english: "customer service representative", description: "负责解答客户咨询和处理投诉的人员。", english_description: "Personnel responsible for answering customer inquiries and handling complaints." },
             { category: "快递相关人员", chinese: "国际快件报关员", pinyin: "guó jì kuài jiàn bào guān yuán", english: "customs broker", description: "负责国际快件报关手续的人员。", english_description: "Personnel responsible for customs declaration procedures for international express items." },
             { category: "快递相关人员", chinese: "分拣员", pinyin: "fēn jiǎn yuán", english: "sorter", description: "负责分拣快件的工作人员。", english_description: "Staff responsible for sorting express items." },
@@ -418,8 +417,7 @@
             { category: "餐饮配送", chinese: "漏送", pinyin: "lòu sòng", english: "missing items", description: "订单中部分或全部商品未送达。", english_description: "Some or all items in the order were not delivered." },
             { category: "餐饮配送", chinese: "延迟", pinyin: "yán chí", english: "delay", description: "食物配送时间超出预估或承诺时间。", english_description: "Food delivery time exceeded the estimated or promised time." },
             { category: "餐饮配送", chinese: "退款", pinyin: "tuì kuǎn", english: "refund", description: "因订单问题而退还支付金额。", english_description: "The return of payment due to an order issue." },
-            { category: "餐饮配送", chinese: "差评", pinyin: "chà píng", english: "negative review", description: "顾客给出的负面评价。", english_description: "A negative review given by a customer." },
-            { category: "餐饮配送", chinese: "准时宝", pinyin: "zhǔn shí bǎo", english: "on-time guarantee insurance", description: "一种服务保障，如果配送超时，会给予用户赔偿。", english_description: "A service guarantee that provides compensation to the user if delivery is delayed beyond the promised time." },
+            { category: "餐饮配送", chinese: "延误险", pinyin: "yán wù xiǎn", english: "on-time guarantee insurance", description: "一种服务保障，如果配送超时，会给予用户赔偿。", english_description: "A service guarantee that provides compensation to the user if delivery is delayed beyond the promised time." },
             { category: "餐饮配送", chinese: "配送异常", pinyin: "pèi sòng yì cháng", english: "delivery exception", description: "配送过程中出现的非正常情况，如配送员联系不上、地址错误等。", english_description: "An abnormal situation that occurs during the delivery process, such as the rider being unreachable or an incorrect address." },
             { category: "餐饮配送", chinese: "催单", pinyin: "cuī dān", english: "urge order; rush order", description: "顾客联系平台或商家，请求加快订单处理或配送速度。", english_description: "A customer contacts the platform or merchant to request faster order processing or delivery." },
             { category: "餐饮配送", chinese: "备注", pinyin: "bèi zhù", english: "notes; special instructions", description: "用户在下单时向商家或配送员提供的额外说明。", english_description: "Additional instructions provided by the user to the merchant or rider when placing an order." },
@@ -446,7 +444,7 @@
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = lang;
-                // Find a Chinese voice if available
+                // Find a voice for the target language if available
                 const voices = speechSynthesis.getVoices();
                 const targetVoice = voices.find(voice => voice.lang === lang);
                 if (targetVoice) {
@@ -500,7 +498,7 @@
             document.querySelectorAll('.play-audio-btn').forEach(button => {
                 button.addEventListener('click', (event) => {
                     const textToSpeak = event.currentTarget.dataset.text;
-                    const langToSpeak = event.currentTarget.dataset.lang; // Corrected from dataset.dataset.lang
+                    const langToSpeak = event.currentTarget.dataset.lang; 
                     speakText(textToSpeak, langToSpeak);
                 });
             });
