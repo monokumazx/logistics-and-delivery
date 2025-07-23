@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式物流与餐饮配送词汇浏览器 (Interactive Logistics and Food Delivery Vocabulary Browser)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral Harmony -->
+    <!-- Application Structure Plan: The application uses a search-first, filterable card layout for vocabulary, and a dedicated vertical timeline section for logistics tracking. A prominent search bar allows for immediate term lookup, while category buttons enable thematic browsing. The timeline provides a linear, chronological view of logistics events. This structure transforms the static lists into interactive tools, prioritizing user-driven exploration and quick information retrieval for vocabulary, and clear chronological understanding for logistics. Cards are used for a modern, responsive presentation of discrete information chunks. The timeline uses structured HTML/CSS for visual clarity of sequential events. -->
+    <!-- Visualization & Content Choices: Report Info: Bilingual glossary and logistics tracking data. Goal: Organize & Inform (vocabulary); Track & Understand (logistics). Viz/Presentation Method: Interactive, filterable list of cards for vocabulary; Structured HTML/CSS vertical timeline for logistics events. Interaction: Real-time search by Chinese/Pinyin/English and filtering by category buttons for vocabulary. The timeline is primarily for clear chronological display. Justification: This design is highly intuitive for a glossary, allowing both direct lookup and exploratory learning. A custom HTML/CSS timeline is chosen for logistics as it provides a superior visual representation of discrete, descriptive events compared to forcing them into Chart.js/Plotly.js, which are better suited for quantitative data. This adheres to the "NO SVG" constraint while providing a clear, engaging visual. Library/Method: Vanilla JS for interaction, Tailwind CSS for styling. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #F8F9FA;
+        }
+        .card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Removed .filter-btn.active as active states are now handled dynamically by JS with Tailwind classes */
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+            padding-left: 2rem;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -0.5rem; /* Adjust to align with the border-l-2 */
+            top: 0.5rem;
+            background-color: #1E40AF; /* Default Blue for logistics */
+            border-radius: 50%;
+            z-index: 10;
+            border: 2px solid white;
+            width: 1rem;
+            height: 1rem;
+        }
+        .timeline-item:last-child::after {
+            content: none; /* No line after the last item */
+        }
+        .timeline-sub-item {
+            margin-bottom: 0.5rem;
+        }
+        /* Orange theme for food delivery section */
+        .food-delivery-timeline .timeline-item::before {
+            background-color: #F97316; /* Orange-500 */
+            border: 2px solid white;
+        }
+        .food-delivery-timeline .border-l-2 {
+            border-color: #FDBA74; /* Orange-300 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900">交互式物流与餐饮配送词汇浏览器 <span class="text-gray-600">(Interactive Logistics and Food Delivery Vocabulary Browser)</span></h1>
+            <p class="mt-2 text-lg text-gray-600">一个现代、易于探索的中英文物流与餐饮配送行业术语表 <span class="text-gray-500">(A modern, easy-to-explore Chinese-English glossary for logistics and food delivery industry terms)</span></p>
+        </header>
+
+        <div id="controls" class="mb-8 p-4 bg-white rounded-lg shadow-md sticky top-4 z-10">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="relative flex-grow">
+                    <input type="text" id="searchInput" placeholder="搜索中文, 拼音, 或英文..." class="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <svg class="w-5 h-5 text-gray-400 absolute top-1/2 left-3 transform -translate-y-1/2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div id="categoryFilters" class="mt-4 flex flex-wrap gap-2 justify-center">
+            </div>
+             <p class="text-center text-sm text-gray-500 mt-4">使用上方的搜索框查找特定术语，或点击一个分类按钮进行浏览。目前显示 <span id="visibleCount" class="font-bold">0</span> / <span id="totalCount" class="font-bold">0</span> 个词条。</p>
+        </div>
+
+        <main id="vocabularyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        </main>
+        
+        <div id="noResults" class="hidden text-center py-16">
+            <p class="text-xl text-gray-500">找不到匹配的词条。</p>
+        </div>
+
+        <section id="logisticsTimeline" class="mt-12 p-4 md:p-8 bg-white rounded-lg shadow-md">
+            <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">物流追踪时间线 <span class="text-gray-600">(Logistics Tracking Timeline)</span></h2>
+            <p class="text-gray-700 mb-8 text-center max-w-2xl mx-auto">
+                本时间线展示了一个通用的物流事件模板，涵盖从订单提交到包裹签收的各个主要阶段和可能发生的详细事件。
+                <span class="text-gray-500">(This timeline presents a generic logistics event template, covering various major stages and possible detailed events from order submission to package delivery.)</span>
+            </p>
+
+            <div class="relative pl-8 md:pl-16 border-l-2 border-blue-300">
+                <!-- Stage: 订单创建与准备 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">订单创建与准备</h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 已下单 <span class="text-gray-500">(Order Placed)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 订单支付成功 <span class="text-gray-500">(Order Paid Successfully)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 订单审核中 <span class="text-gray-500">(Order Under Review)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 仓库开始准备您的订单商品 <span class="text-gray-500">(Warehouse Started Preparing Order Items)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 您的订单商品已准备完成，正转运输到打包集货中心 <span class="text-gray-500">(Order Items Ready, Transferring to Packing Center)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 您的订单商品已送达打包集货中心 <span class="text-gray-500">(Order Items Arrived at Packing Center)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 已打印拣货单，拣货任务分配中 <span class="text-gray-500">(Picking List Printed, Task Being Assigned)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 仓库拣货中 <span class="text-gray-500">(Warehouse Picking)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 您的订单已拣货完成，正在等待包装 <span class="text-gray-500">(Order Picked, Awaiting Packaging)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹正等待被装进集运箱 <span class="text-gray-500">(Package Awaiting Consolidation)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包装完成，等待揽收 <span class="text-gray-500">(Packaging Complete, Awaiting Pickup)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 已揽收 <span class="text-gray-500">(Picked Up)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 订单已发货 <span class="text-gray-500">(Order Shipped)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 缺货/等待补货 <span class="text-gray-500">(Out of Stock/Awaiting Restock)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 商品替换/取消部分商品 <span class="text-gray-500">(Item Replacement/Partial Cancellation)</span></p>
+                    </div>
+                </div>
+
+                <!-- Stage: 国际运输与清关 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">国际运输与清关</h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 等待航班安排 <span class="text-gray-500">(Awaiting Flight Arrangement)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 航班已起飞 <span class="text-gray-500">(Flight Departed)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 航班延误/取消 <span class="text-gray-500">(Flight Delayed/Cancelled)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 航司入境处理 <span class="text-gray-500">(Airline Inbound Processing)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹已到达目的地机场 <span class="text-gray-500">(Package Arrived at Destination Airport)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 通知清关公司提货 <span class="text-gray-500">(Notified Customs Company to Pick Up Goods)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 由清关公司取件 <span class="text-gray-500">(Picked Up by Customs Company)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 货站交付清关行 <span class="text-gray-500">(Cargo Station Delivered to Customs Broker)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 被海关查验 <span class="text-gray-500">(Under Customs Inspection)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 清关已完成 <span class="text-gray-500">(Customs Clearance Completed)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 清关失败/待补资料 <span class="text-gray-500">(Customs Clearance Failed/Awaiting Supplementary Documents)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 关税缴纳中 <span class="text-gray-500">(Customs Duty Payment In Progress)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 被海关移交 <span class="text-gray-500">(Handed Over by Customs)</span></p>
+                    </div>
+                </div>
+
+                <!-- Stage: 本地派送与签收 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">本地派送与签收</h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹已在[中转城市/区域]接收 <span class="text-gray-500">(Package Received in [Transit City/Area])</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹已由本地站点接收 <span class="text-gray-500">(Package Received by Local Site)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹已离开仓库 <span class="text-gray-500">(Package Left Warehouse)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹到达派送站，待派送 <span class="text-gray-500">(Package Arrived at Delivery Station, Awaiting Delivery)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 派送中 <span class="text-gray-500">(Out for Delivery)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 地址不详/派送失败 <span class="text-gray-500">(Address Unknown/Delivery Failed)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 派送失败，待重新派送 <span class="text-gray-500">(Delivery Failed, Awaiting Re-delivery)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 已送达，放在邮箱中 <span class="text-gray-500">(Delivered, In/At Mailbox)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 由他人代收 <span class="text-gray-500">(Received by Another Person)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 投递至自提柜 <span class="text-gray-500">(Delivered to Pickup Locker)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 已签收 <span class="text-gray-500">(Delivered)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 签收异常/用户拒收 <span class="text-gray-500">(Abnormal Receipt/User Refused)</span></p>
+                    </div>
+                </div>
+
+                <!-- Stage: 异常/问题件 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">异常/问题件</h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹丢失 <span class="text-gray-500">(Package Lost)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹破损 <span class="text-gray-500">(Package Damaged)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 包裹退回发件方 <span class="text-gray-500">(Package Returned to Sender)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 用户申请拒收/取消订单 <span class="text-gray-500">(User Requested Refusal/Order Cancellation)</span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- New Food Delivery Section -->
+        <section id="foodDeliveryTerms" class="mt-12 p-4 md:p-8 bg-white rounded-lg shadow-md food-delivery-timeline">
+            <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">餐饮配送术语 <span class="text-gray-600">(Food Delivery Terms)</span></h2>
+            <p class="text-gray-700 mb-8 text-center max-w-2xl mx-auto">
+                本部分收录和管理外卖相关的术语，帮助您理解餐饮配送的各个环节。
+                <span class="text-gray-500">(This section collects and manages terms related to food delivery, helping you understand various aspects of the food delivery process.)</span>
+            </p>
+
+            <div class="relative pl-8 md:pl-16 border-l-2">
+                <!-- Sub-section: 订单状态 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">订单状态 <span class="text-gray-600">(Order Status)</span></h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 待付款 <span class="text-gray-500">(Pending Payment)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 订单已送达 <span class="text-gray-500">(Order Delivered)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 已完成 <span class="text-gray-500">(Completed)</span></p>
+                        <p class="timeline-sub-item">外卖 <span class="text-gray-500">(food delivery; takeout)</span></p>
+                        <p class="timeline-sub-item">订单取消 <span class="text-gray-500">(order cancellation)</span></p>
+                    </div>
+                </div>
+
+                <!-- Sub-section: 商家处理 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">商家处理 <span class="text-gray-600">(Merchant Handling)</span></h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 商家已收到该订单 <span class="text-gray-500">(Merchant Received Order)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 商家备餐中 <span class="text-gray-500">(Merchant Preparing Food)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 商家已出餐 <span class="text-gray-500">(Food Ready for Pickup)</span></p>
+                        <p class="timeline-sub-item">商家 <span class="text-gray-500">(merchant; restaurant)</span></p>
+                        <p class="timeline-sub-item">打包费 <span class="text-gray-500">(packaging fee)</span></p>
+                    </div>
+                </div>
+
+                <!-- Sub-section: 配送流程 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">配送流程 <span class="text-gray-600">(Delivery Process)</span></h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 配送员正在赶往商家 <span class="text-gray-500">(Rider En Route to Merchant)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 配送员已取餐 <span class="text-gray-500">(Food Picked Up by Rider)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 配送员派送中 <span class="text-gray-500">(Rider En Route to Delivery)</span></p>
+                        <p class="timeline-sub-item"><span class="font-medium">日期 时间</span> - 配送员派送中_已达地点附近 <span class="text-gray-500">(Rider Approaching Delivery Point)</span></p>
+                        <p class="timeline-sub-item">骑手 <span class="text-gray-500">(rider; delivery driver)</span></p>
+                        <p class="timeline-sub-item">配送费 <span class="text-gray-500">(delivery fee)</span></p>
+                        <p class="timeline-sub-item">预估送达时间 <span class="text-gray-500">(estimated delivery time)</span></p>
+                        <p class="timeline-sub-item">实时追踪 <span class="text-gray-500">(real-time tracking)</span></p>
+                        <p class="timeline-sub-item">配送范围 <span class="text-gray-500">(delivery range)</span></p>
+                    </div>
+                </div>
+
+                <!-- Sub-section: 异常与问题 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">异常与问题 <span class="text-gray-600">(Exceptions and Issues)</span></h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item">漏送 <span class="text-gray-500">(missing items)</span></p>
+                        <p class="timeline-sub-item">延迟 <span class="text-gray-500">(delay)</span></p>
+                        <p class="timeline-sub-item">退款 <span class="text-gray-500">(refund)</span></p>
+                        <p class="timeline-sub-item">差评 <span class="text-gray-500">(negative review)</span></p>
+                        <p class="timeline-sub-item">准时宝 <span class="text-gray-500">(on-time guarantee insurance)</span></p>
+                        <p class="timeline-sub-item">配送异常 <span class="text-gray-500">(delivery exception)</span></p>
+                    </div>
+                </div>
+
+                <!-- Sub-section: 用户行为 -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">用户行为 <span class="text-gray-600">(User Behavior)</span></h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item">催单 <span class="text-gray-500">(urge order; rush order)</span></p>
+                        <p class="timeline-sub-item">备注 <span class="text-gray-500">(notes; special instructions)</span></p>
+                        <p class="timeline-sub-item">无接触配送 <span class="text-gray-500">(contactless delivery)</span></p>
+                        <p class="timeline-sub-item">评价 <span class="text-gray-500">(rating; review)</span></p>
+                        <p class="timeline-sub-item">好评 <span class="text-gray-500">(positive review)</span></p>
+                    </div>
+                </div>
+
+                <!-- Other Food Delivery Terms (if any don't fit the above categories) -->
+                <div class="timeline-item">
+                    <h3 class="text-lg font-semibold text-gray-900">其他餐饮配送术语 <span class="text-gray-600">(Other Food Delivery Terms)</span></h3>
+                    <div class="mt-2 text-gray-700 text-sm pl-4">
+                        <p class="timeline-sub-item">起送价 <span class="text-gray-500">(minimum order value for delivery)</span></p>
+                        <p class="timeline-sub-item">满减 <span class="text-gray-500">(full reduction (discount))</span></p>
+                        <p class="timeline-sub-item">优惠券 <span class="text-gray-500">(coupon)</span></p>
+                        <p class="timeline-sub-item">高峰期 <span class="text-gray-500">(peak hours)</span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        const vocabularyData = [
+            { category: "快递服务类型", chinese: "快递服务", pinyin: "kuài dì fú wù", english: "express service; courier service", description: "快递服务组织提供的包裹和文件递送服务。" },
+            { category: "快递服务类型", chinese: "国内快递", pinyin: "guó nèi kuài dì", english: "domestic express service", description: "在一个国家内部进行的快递服务。" },
+            { category: "快递服务类型", chinese: "同城快递", pinyin: "tóng chéng kuài dì", english: "intra-city express service", description: "在同一城市内进行的快递服务。" },
+            { category: "快递服务类型", chinese: "省内异地快递", pinyin: "shěng nèi yì dì kuài dì", english: "intra-province express service", description: "在同一省份内不同城市之间进行的快递服务。" },
+            { category: "快递服务类型", chinese: "省际快递", pinyin: "shěng jì kuài dì", english: "inter-province express service", description: "在不同省份之间进行的快递服务。" },
+            { category: "快递服务类型", chinese: "国际快递", pinyin: "guó jì kuài dì", english: "international express service", description: "跨越国界进行的快递服务。" },
+            { category: "快递服务类型", chinese: "国际进境快递", pinyin: "guó jì jìn jìng kuài dì", english: "international inbound express service", description: "从国外进入本国的快递服务。" },
+            { category: "快递服务类型", chinese: "国际出境快递", pinyin: "guó jì chū jìng kuài dì", english: "international outbound express service", description: "从本国寄往国外的快递服务。" },
+            { category: "快递服务类型", chinese: "港澳台快递", pinyin: "gǎng ào tái kuài dì", english: "express service to/from Hong Kong Macao and Taiwan", description: "往返香港、澳门和台湾地区的快递服务。" },
+            { category: "快递服务类型", chinese: "代收货款", pinyin: "dài shōu huò kuǎn", english: "cash on delivery", description: "快递公司在送货时代收货款的服务。" },
+            { category: "快递服务类型", chinese: "签单返还", pinyin: "qiān dān fǎn huán", english: "receipt collect service", description: "快递公司将签收回单返还给寄件人的服务。" },
+            { category: "快递服务类型", chinese: "限时快递", pinyin: "xiàn shí kuài dì", english: "time-definite express", description: "承诺在特定时间内送达的快递服务。" },
+            { category: "快递服务类型", chinese: "专差快递", pinyin: "zhuān chāi kuài dì", english: "onboard courier", description: "由专人携带快件进行递送的服务。" },
+            { category: "快递服务类型", chinese: "隔日达", pinyin: "gé rì dá", english: "next-day delivery", description: "次日送达的快递服务类型。" },
+            { category: "快递服务类型", chinese: "当日达", pinyin: "dāng rì dá", english: "same-day delivery", description: "当日内完成的快递服务。" },
+            { category: "快件状态与类型", chinese: "快件", pinyin: "kuài jiàn", english: "express item", description: "通过快递服务递送的物品或文件。" },
+            { category: "快件状态与类型", chinese: "信件类快件", pinyin: "xìn jiàn lèi kuài jiàn", english: "letters express item", description: "主要为信件、文件等纸质品的快件。" },
+            { category: "快件状态与类型", chinese: "物品类快件", pinyin: "wù pǐn lèi kuài jiàn", english: "articles express item", description: "主要为包裹、商品等非纸质品的快件。" },
+            { category: "快件状态与类型", chinese: "改递件", pinyin: "gǎi dì jiàn", english: "express item with corrected address", description: "地址有误，需要更改后重新递送的快件。" },
+            { category: "快件状态与类型", chinese: "委托件", pinyin: "wěi tuō jiàn", english: "express item consigned by a third party", description: "由第三方委托寄送的快件。" },
+            { category: "快件状态与类型", chinese: "自取件", pinyin: "zì qǔ jiàn", english: "express item by self-pick-up", description: "收件人需要自行前往指定地点领取的快件。" },
+            { category: "快件状态与类型", chinese: "到付件", pinyin: "dào fù jiàn", english: "freight collect express item", description: "运费由收件人支付的快件。" },
+            { category: "快件状态与类型", chinese: "拒付件", pinyin: "jù fù jiàn", english: "freight collect refusal express item", description: "收件人拒绝支付运费的到付件。" },
+            { category: "快件状态与类型", chinese: "拒收件", pinyin: "jù shōu jiàn", english: "signature refusal express item", description: "收件人拒绝签收的快件。" },
+            { category: "快件状态与类型", chinese: "错发件", pinyin: "cuò fā jiàn", english: "mis-delivered express item", description: "快递公司错误发送的快件。" },
+            { category: "快件状态与类型", chinese: "无着快件", pinyin: "wú zhuó kuài jiàn", english: "undeliverable express item", description: "无法投递或联系到收件人的快件。" },
+            { category: "快件状态与类型", chinese: "破损件", pinyin: "pò sǔn jiàn", english: "express item with damaged packing", description: "包装出现破损的快件。" },
+            { category: "快件状态与类型", chinese: "损毁件", pinyin: "sǔn huǐ jiàn", english: "damaged express item", description: "快件内部物品受损的快件。" },
+            { category: "快件状态与类型", chinese: "已签收", pinyin: "yǐ qiān shōu", english: "Delivered", description: "包裹已成功送达并被签收。" },
+            { category: "快件状态与类型", chinese: "已送达，放在邮箱中", pinyin: "yǐ sòng dá, fàng zài yóu xiāng zhōng", english: "Delivered, In/At Mailbox", description: "包裹已送达并放置在收件人邮箱中。" },
+            { category: "快件状态与类型", chinese: "派送中", pinyin: "pài sòng zhōng", english: "Out for Delivery", description: "包裹正在派送途中，即将送达。" },
+            { category: "快件状态与类型", chinese: "运输中，前往下一个分拣中心", pinyin: "yùn shū zhōng, qián wǎng xià yī gè fēn jiǎn zhōng xīn", english: "In Transit to Next Facility", description: "包裹正在运输中，前往下一个分拣中心。" },
+            { category: "快件状态与类型", chinese: "商家正在准备您的包裹，完成后将把包裹交给快递员来运输", pinyin: "shāng jiā zhèng zài zhǔn bèi nín de bāo guǒ, wán chéng hòu jiāng bǎ bāo guǒ jiāo gěi kuài dì yuán lái yùn shū", english: "Your package is being prepared by the seller and will soon be handed over to the carrier", description: "商家正在处理包裹，即将交给快递公司运输。" },
+            { category: "快件状态与类型", chinese: "重派件", pinyin: "zhòng pài jiàn", english: "re-dispatched item", description: "被重新安排派送的快件。" },
+            { category: "快递操作与流程", chinese: "接单", pinyin: "jiē dān", english: "order-taking", description: "接收客户寄件请求的过程。" },
+            { category: "快递操作与流程", chinese: "取件", pinyin: "qǔ jiàn", english: "pickup", description: "快递业务员从寄件人处收取快件。" },
+            { category: "快递操作与流程", chinese: "验视", pinyin: "yàn shì", english: "content inspection", description: "对快件内容进行检查。" },
+            { category: "快递操作与流程", chinese: "封装", pinyin: "fēng zhuāng", english: "packing", description: "对快件进行包装。" },
+            { category: "快递操作与流程", chinese: "分拣", pinyin: "fēn jiǎn", english: "sorting", description: "根据目的地对快件进行分类。" },
+            { category: "快递操作与流程", chinese: "封发", pinyin: "fēng fā", english: "dispatching", description: "将分拣好的快件打包并发出。" },
+            { category: "快递操作与流程", chinese: "报关", pinyin: "bào guān", english: "customs declaration", description: "向海关申报进出口快件。" },
+            { category: "快递操作与流程", chinese: "通关", pinyin: "tōng guān", english: "customs clearance", description: "快件通过海关检查并获准放行。" },
+            { category: "快递操作与流程", chinese: "报检", pinyin: "bào jiǎn", english: "declaration for quarantine inspection", description: "向检验检疫部门申报快件。" },
+            { category: "快递操作与流程", chinese: "首次投递", pinyin: "shǒu cì tóu dì", english: "first delivery", description: "第一次尝试将快件送达收件人。" },
+            { category: "快递操作与流程", chinese: "复投", pinyin: "fù tóu", english: "second delivery", description: "第一次投递失败后再次尝试投递。" },
+            { category: "快递操作与流程", chinese: "投诉", pinyin: "tóu sù", english: "complaint", description: "客户对快递服务不满意的反馈。" },
+            { category: "快递操作与流程", chinese: "申诉", pinyin: "shēn sù", english: "appeal", description: "对投诉处理结果不满意而再次提出的请求。" },
+            { category: "快递操作与流程", chinese: "已到达邮局", pinyin: "yǐ dá dào yóu jú", english: "Arrived at Post Office", description: "包裹已到达当地邮局。" },
+            { category: "快递操作与流程", chinese: "已到达 USPS 区域目的地分拣中心", pinyin: "yǐ dá dào USPS qū yù mù dì dì fēn jiǎn zhōng xīn", english: "Arrived at USPS Regional Destination Facility", description: "包裹已到达美国邮政服务区域目的地分拣中心。" },
+            { category: "快递操作与流程", chinese: "已到达 USPS 区域起始分拣中心", pinyin: "yǐ dá dào USPS qū yù qǐ shǐ fēn jiǎn zhōng xīn", english: "Arrived at USPS Regional Origin Facility", description: "包裹已到达美国邮政服务区域起始分拣中心。" },
+            { category: "快递操作与流程", chinese: "已到达 USPS 起始分拣中心", pinyin: "yǐ dá dào USPS qǐ shǐ fēn jiǎn zhōng xīn", english: "Accepted at USPS Origin Facility", description: "包裹已到达美国邮政服务起始分拣中心并被接受。" },
+            { category: "快递操作与流程", chinese: "揽收", pinyin: "lǎn shōu", english: "pickup and acceptance", description: "快递公司正式接收快件。" },
+            { category: "快递操作与流程", chinese: "入库", pinyin: "rù kù", english: "warehousing", description: "快件进入仓库储存的操作。" },
+            { category: "快递操作与流程", chinese: "出库", pinyin: "chū kù", english: "outbound", description: "快件从仓库发出的操作。" },
+            { category: "快递操作与流程", chinese: "打单", pinyin: "dǎ dān", english: "label printing", description: "打印快递单的操作流程。" },
+            { category: "快递相关人员", chinese: "快递服务组织", pinyin: "kuài dì fú wù zǔ zhī", english: "express service organization", description: "提供快递服务的机构或公司。" },
+            { category: "快递相关人员", chinese: "快递业务员", pinyin: "kuài dì yè wù yuán", english: "operational express service provider", description: "从事快递业务操作的人员。" },
+            { category: "快递相关人员", chinese: "收派员", pinyin: "shōu pài yuán", english: "courier", description: "负责收取和派送快件的人员。" },
+            { category: "快递相关人员", chinese: "处理员", pinyin: "chǔ lǐ yuán", english: "express item operator", description: "负责快件处理、分拣等操作的人员。" },
+            { category: "快递相关人员", chinese: "客服人员", pinyin: "kè fú rén yuán", english: "customer service representative", description: "负责解答客户咨询和处理投诉的人员。" },
+            { category: "快递相关人员", chinese: "国际快件报关员", pinyin: "guó jì kuài jiàn bào guān yuán", english: "customs broker", description: "负责国际快件报关手续的人员。" },
+            { category: "快递相关人员", chinese: "分拣员", pinyin: "fēn jiǎn yuán", english: "sorter", description: "负责分拣快件的工作人员。" },
+            { category: "快递相关人员", chinese: "仓储员", pinyin: "cāng chǔ yuán", english: "warehouse staff", description: "仓库操作人员。" },
+            { category: "快递单据与文件", chinese: "详情单", pinyin: "xiáng qíng dān", english: "express waybill", description: "记录快件详细信息、寄件人和收件人信息的单据。" },
+            { category: "快递单据与文件", chinese: "改寄申请单", pinyin: "gǎi jì shēn qǐng dān", english: "application form for address", description: "申请更改快件地址的表格。" },
+            { category: "快递单据与文件", chinese: "索赔申告单", pinyin: "suǒ péi shēn gào dān", english: "claim authorization form", description: "申请索赔的表格。" },
+            { category: "快递单据与文件", chinese: "回单", pinyin: "huí dān", english: "interchange receipt", description: "签收后返回给寄件人的单据。" },
+            { category: "快递单据与文件", chinese: "快件报关单", pinyin: "kuài jiàn bào guān dān", english: "customs declaration form", description: "用于向海关申报快件信息的单据。" },
+            { category: "快递单据与文件", chinese: "形式发票", pinyin: "xíng shì fā piào", english: "proforma invoice", description: "一种预估性发票，用于报关或贸易谈判。" },
+            { category: "快递单据与文件", chinese: "运单副本", pinyin: "yùn dān fù běn", english: "shipment copy", description: "快递单的复印件，供内部使用。" },
+            { category: "快递场所与设施", chinese: "快递业务网络", pinyin: "kuài dì yè wù wǎng luò", english: "express service network", description: "快递服务覆盖的区域和连接点。" },
+            { category: "快递场所与设施", chinese: "快递营业场所", pinyin: "kuài dì yíng yè chǎng suǒ", english: "business premises for express service", description: "快递公司提供服务的营业地点。" },
+            { category: "快递场所与设施", chinese: "快递处理场所", pinyin: "kuài dì chǔ lǐ chǎng suǒ", english: "express handling area", description: "快递进行分拣、包装等操作的区域。" },
+            { category: "快递场所与设施", chinese: "海关快件监管场所", pinyin: "hǎi guān kuài jiàn jiān guǎn chǎng suǒ", english: "customs supervised area", description: "海关对快件进行监管的区域。" },
+            { category: "快递场所与设施", chinese: "呼叫中心", pinyin: "hū jiào zhōng xīn", english: "call center", description: "负责电话咨询和服务的中心。" },
+            { category: "快递场所与设施", chinese: "跟踪查询系统", pinyin: "gēn zōng chá xún xì tǒng", english: "express item tracking system", description: "用于查询快件物流状态的系统。" },
+            { category: "快递场所与设施", chinese: "手持终端", pinyin: "shǒu chí zhōng duān", english: "personal digital assistant (PDA)", description: "快递业务员使用的手持设备。" },
+            { category: "快递场所与设施", chinese: "快递封套", pinyin: "kuài dì fēng tào", english: "envelope for express service", description: "用于包装信件类快件的封套。" },
+            { category: "快递场所与设施", chinese: "快递包装箱", pinyin: "kuài dì bāo zhuāng xiāng", english: "packing boxes for express service", description: "用于包装物品类快件的箱子。" },
+            { category: "快递场所与设施", chinese: "快递包装袋", pinyin: "kuài dì bāo zhuāng dài", english: "packing bags for express service", description: "用于包装物品类快件的袋子。" },
+            { category: "快递场所与设施", chinese: "转运中心", pinyin: "zhuǎn yùn zhōng xīn", english: "transfer hub", description: "快件中转和重新分拣的场所。" },
+            { category: "服务质量与问题", chinese: "快件编号", pinyin: "kuài jiàn biān hào", english: "tracking number of the express item", description: "用于唯一标识和跟踪快件的号码。" },
+            { category: "服务质量与问题", chinese: "快件总包", pinyin: "kuài jiàn zǒng bāo", english: "consolidated dispatch", description: "将多个快件合并成一个大包进行运输。" },
+            { category: "服务质量与问题", chinese: "查询信息有效期", pinyin: "chá xún xìn xī yǒu xiào qī", english: "valid period for inquiry", description: "可以查询快件信息的有效时间段。" },
+            { category: "服务质量与问题", chinese: "投诉有效期", pinyin: "tóu sù yǒu xiào qī", english: "valid period for complaint", description: "可以提出投诉的有效时间段。" },
+            { category: "服务质量与问题", chinese: "申诉时限", pinyin: "shēn sù shí xiàn", english: "time limit for complaint", description: "提出申诉的最长时间限制。" },
+            { category: "服务质量与问题", chinese: "快件延误", pinyin: "kuài jiàn yán wù", english: "delay of express item", description: "快件未能在承诺时限内送达。" },
+            { category: "服务质量与问题", chinese: "快件丢失", pinyin: "kuài jiàn diū shī", english: "loss of express item", description: "快件在运输过程中丢失。" },
+            { category: "服务质量与问题", chinese: "内件不符", pinyin: "nèi jiàn bù fú", english: "unconformity of contents", description: "快件内部物品与详情单描述不符。" },
+            { category: "服务质量与问题", chinese: "快递服务时限", pinyin: "kuài dì fú wù shí xiàn", english: "time limit from pick-up to the first delivery", description: "从取件到首次投递的最长时间限制。" },
+            { category: "服务质量与问题", chinese: "查询答复时限", pinyin: "chá xún dá fù shí xiàn", english: "time limit for inquiry reply", description: "快递公司回复查询请求的最长时间限制。" },
+            { category: "服务质量与问题", chinese: "投诉处理时限", pinyin: "tóu sù chǔ lǐ shí xiàn", english: "time limit for complaint handling", description: "快递公司处理投诉的最长时间限制。" },
+            { category: "服务质量与问题", chinese: "索赔的处理时限", pinyin: "suǒ péi de chǔ lǐ shí xiàn", english: "time limit for claim handling", description: "快递公司处理索赔请求的最长时间限制。" },
+            { category: "服务质量与问题", chinese: "时限准时率", pinyin: "shí xiàn zhǔn shí lǜ", english: "on-time delivery rate", description: "快件在承诺时间内送达的比例。" },
+            { category: "服务质量与问题", chinese: "快件丢失率", pinyin: "kuài jiàn diū shī lǜ", english: "rate of lost express items", description: "快件丢失的比例。" },
+            { category: "服务质量与问题", chinese: "快件损毁率", pinyin: "kuài jiàn sǔn huǐ lǜ", english: "rate of damaged express items", description: "快件损毁的比例。" },
+            { category: "服务质量与问题", chinese: "用户投诉率", pinyin: "yòng hù tóu sù lǜ", english: "customer complaint rate", description: "客户提出投诉的比例。" },
+            { category: "服务质量与问题", chinese: "投诉渠道", pinyin: "tóu sù qú dào", english: "complaint channel", description: "用户进行投诉的正式途径。" },
+            { category: "服务质量与问题", chinese: "理赔标准", pinyin: "lǐ péi biāo zhǔn", english: "compensation policy", description: "快递公司处理赔偿的标准规则。" },
+            { category: "服务质量与问题", chinese: "内件丢失", pinyin: "nèi jiàn diū shī", english: "lost content", description: "快件内容部分丢失情况。" },
+            { category: "订单状态", chinese: "订单已发货", pinyin: "dìng dān yǐ fā huò", english: "Order Shipped", description: "订单中的商品已发货。" },
+            { category: "订单状态", chinese: "订单支付成功", pinyin: "dìng dān zhī fù chéng gōng", english: "Order paid successfully", description: "订单已成功支付。" },
+            { category: "订单状态", chinese: "提交订单", pinyin: "tí jiāo dìng dān", english: "Order Submitted", description: "订单已提交。" },
+            { category: "订单状态", chinese: "所有订单", pinyin: "suǒ yǒu dìng dān", english: "All Orders", description: "显示所有订单的状态。" },
+            { category: "订单状态", chinese: "待发货", pinyin: "dài fā huò", english: "Pending Shipment", description: "订单已确认但尚未发货。" },
+            { category: "订单状态", chinese: "已发货", pinyin: "yǐ fā huò", english: "Shipped", description: "订单中的商品已发出。" },
+            { category: "订单状态", chinese: "已送达", pinyin: "yǐ sòng dá", english: "Delivered", description: "订单已成功送达。" },
+            { category: "订单状态", chinese: "退款售后", pinyin: "tuì kuǎn shòu hòu", english: "Refund/After-sales", description: "关于退款和售后服务的选项。" },
+            { category: "订单状态", chinese: "订单取消", pinyin: "dìng dān qǔ xiāo", english: "order cancellation", description: "订单被取消，未进行发货。" },
+            { category: "订单状态", chinese: "异常订单", pinyin: "yì cháng dìng dān", english: "abnormal order", description: "处理过程中出现异常的订单。" },
+            { category: "物流状态", chinese: "包裹已离开仓库", pinyin: "bāo guǒ yǐ lí kāi cāng kù", english: "Package left warehouse", description: "包裹已从仓库发出。" },
+            { category: "物流状态", chinese: "包裹已由本地站点接收", pinyin: "bāo guǒ yǐ yóu běn dì zhàn jiē shōu", english: "Package received by local site", description: "包裹已到达当地快递站点并被接收。" },
+            { category: "物流状态", chinese: "包裹已在[中转城市/区域]接收", pinyin: "bāo guǒ yǐ zài [zhōng zhuǎn chéng shì/qū yù] jiē shōu", english: "Package received in [transit city/area]", description: "包裹已在某个中转城市或区域被接收。" },
+            { category: "物流状态", chinese: "被海关移交", pinyin: "bèi hǎi guān yí jiāo", english: "Handed over by customs", description: "包裹已通过海关检查并被移交。" },
+            { category: "物流状态", chinese: "清关已完成", pinyin: "qīng guān yǐ wán chéng", english: "Customs clearance completed", description: "包裹的清关手续已全部完成。" },
+            { category: "物流状态", chinese: "货站交付清关行", pinyin: "huò zhàn jiāo fù qīng guān háng", english: "Cargo station delivered to customs broker", description: "货物已从货站交付给清关公司进行处理。" },
+            { category: "物流状态", chinese: "由清关公司取件", pinyin: "yóu qīng guān gōng sī qǔ jiàn", english: "Picked up by customs company", description: "清关公司已从指定地点取走包裹。" },
+            { category: "物流状态", chinese: "通知清关公司提货", pinyin: "tōng zhī qīng guān gōng sī tí huò", english: "Notified customs company to pick up goods", description: "已通知清关公司前往提取货物。" },
+            { category: "物流状态", chinese: "包裹已到达目的地机场", pinyin: "bāo guǒ yǐ dá dào mù dì dì jī chǎng", english: "Package arrived at destination airport", description: "包裹已抵达目的地的机场。" },
+            { category: "物流状态", chinese: "航班已起飞", pinyin: "háng bān yǐ qǐ fēi", english: "Flight departed", description: "载有包裹的航班已从出发地起飞。" },
+            { category: "物流状态", chinese: "航司入境处理", pinyin: "háng sī rù jìng chǔ lǐ", english: "Airline inbound processing", description: "航空公司正在处理入境包裹的相关手续。" },
+            { category: "物流状态", chinese: "包裹正等待被装进集运箱", pinyin: "bāo guǒ zhèng děng dài bèi zhuāng jìn jí yùn xiāng", english: "Package awaiting consolidation", description: "包裹正在等待被装入集运箱进行集中运输。" },
+            { category: "物流状态", chinese: "您的订单已拣货完成，正在等待包装", pinyin: "nín de dìng dān yǐ jiǎn huò wán chéng, zhèng zài děng dài bāo zhuāng", english: "Your order has been picked and is awaiting packaging", description: "订单商品已从仓库拣选完毕，正在等待包装。" },
+            { category: "物流状态", chinese: "仓库拣货中", pinyin: "cāng kù jiǎn huò zhōng", english: "Warehouse picking", description: "仓库工作人员正在拣选订单中的商品。" },
+            { category: "物流状态", chinese: "已打印拣货单，拣货任务分配中", pinyin: "yǐ dǎ yìn jiǎn huò dān, jiǎn huò rèn wù fēn pèi zhōng", english: "Picking list printed, picking task being assigned", description: "拣货单已打印，拣货任务正在分配给工作人员。" },
+            { category: "物流状态", chinese: "您的订单商品已送达打包集货中心", pinyin: "nín de dìng dān shāng pǐn yǐ sòng dá dǎ bāo jí huò zhōng xīn", english: "Your order items have arrived at the packing and consolidation center", description: "订单商品已送达打包和集货的中心。" },
+            { category: "物流状态", chinese: "您的订单商品已准备完成，正转运输到打包集货中心", pinyin: "nín de dìng dān shāng pǐn yǐ zhǔn bèi wán chéng, zhèng zhuǎn yùn shū dào dǎ bāo jí huò zhōng xīn", english: "Your order items are ready and being transferred to the packing and consolidation center", description: "订单商品已准备好，正在转运至打包集货中心。" },
+            { category: "物流状态", chinese: "仓库开始准备您的订单商品", pinyin: "cāng kù kāi shǐ zhǔn bèi nín de dìng dān shāng pǐn", english: "Warehouse started preparing your order items", description: "仓库已开始为您的订单准备商品。" },
+            // Food Delivery Terms - Categorized
+            { category: "餐饮配送", chinese: "待付款", pinyin: "dài fù kuǎn", english: "Pending Payment", description: "订单已提交但尚未完成支付。" },
+            { category: "餐饮配送", chinese: "订单已送达", pinyin: "dìng dān yǐ sòng dá", english: "Order Delivered", description: "您的食物订单已成功送达。" },
+            { category: "餐饮配送", chinese: "已完成", pinyin: "yǐ wán chéng", english: "Completed", description: "订单的整个配送流程已结束。" },
+            { category: "餐饮配送", chinese: "外卖", pinyin: "wài mài", english: "food delivery; takeout", description: "指通过在线平台或电话订购食物，并由配送员送达的服务。" },
+            { category: "餐饮配送", chinese: "订单取消", pinyin: "dìng dān qǔ xiāo", english: "order cancellation", description: "订单被取消，未进行发货。" },
+            { category: "餐饮配送", chinese: "商家已收到该订单", pinyin: "shāng jiā yǐ shōu dào gāi dìng dān", english: "Merchant Received Order", description: "商家已确认收到您的订单。" },
+            { category: "餐饮配送", chinese: "商家备餐中", pinyin: "shāng jiā bèi cān zhōng", english: "Merchant Preparing Food", description: "商家正在准备您订单中的食物。" },
+            { category: "餐饮配送", chinese: "商家已出餐", pinyin: "shāng jiā yǐ chū cān", english: "Food Ready for Pickup", description: "餐厅已完成食物准备，等待配送员取走。" },
+            { category: "餐饮配送", chinese: "商家", pinyin: "shāng jiā", english: "merchant; restaurant", description: "提供食物并接受订单的餐馆或商店。" },
+            { category: "餐饮配送", chinese: "打包费", pinyin: "dǎ bāo fèi", english: "packaging fee", description: "商家为食物打包收取的费用。" },
+            { category: "餐饮配送", chinese: "配送员正在赶往商家", pinyin: "pèi sòng yuán zhèng zài gǎn wǎng shāng jiā", english: "Rider En Route to Merchant", description: "配送员正在前往餐厅取餐的路上。" },
+            { category: "餐饮配送", chinese: "配送员已取餐", pinyin: "pèi sòng yuán yǐ qǔ cān", english: "Food Picked Up by Rider", description: "配送员已从商家处取走您的食物。" },
+            { category: "餐饮配送", chinese: "配送员派送中", pinyin: "pèi sòng yuán pài sòng zhōng", english: "Rider En Route to Delivery", description: "配送员正在将您的食物送往目的地。" },
+            { category: "餐饮配送", chinese: "配送员派送中_已达地点附近", pinyin: "pèi sòng yuán pài sòng zhōng_yǐ dá dì diǎn fù jìn", english: "Rider Approaching Delivery Point", description: "配送员已接近您的送餐地点。" },
+            { category: "餐饮配送", chinese: "骑手", pinyin: "qí shǒu", english: "rider; delivery driver", description: "负责食物配送的快递员。" },
+            { category: "餐饮配送", chinese: "配送费", pinyin: "pèi sòng fèi", english: "delivery fee", description: "为食物配送服务支付的费用。" },
+            { category: "餐饮配送", chinese: "预估送达时间", pinyin: "yù gū sòng dá shí jiān", english: "estimated delivery time", description: "系统根据当前情况预测的食物送达时间。" },
+            { category: "餐饮配送", chinese: "实时追踪", pinyin: "shí shí zhuī zōng", english: "real-time tracking", description: "用户可以实时查看订单配送进度的功能。" },
+            { category: "餐饮配送", chinese: "配送范围", pinyin: "pèi sòng fàn wéi", english: "delivery range", description: "商家或平台提供配送服务的地理区域。" },
+            { category: "餐饮配送", chinese: "漏送", pinyin: "lòu sòng", english: "missing items", description: "订单中部分或全部商品未送达。" },
+            { category: "餐饮配送", chinese: "延迟", pinyin: "yán chí", english: "delay", description: "食物配送时间超出预估或承诺时间。" },
+            { category: "餐饮配送", chinese: "退款", pinyin: "tuì kuǎn", english: "refund", description: "因订单问题而退还支付金额。" },
+            { category: "餐饮配送", chinese: "差评", pinyin: "chà píng", english: "negative review", description: "顾客给出的负面评价。" },
+            { category: "餐饮配送", chinese: "准时宝", pinyin: "zhǔn shí bǎo", english: "on-time guarantee insurance", description: "一种服务保障，如果配送超时，会给予用户赔偿。" },
+            { category: "餐饮配送", chinese: "配送异常", pinyin: "pèi sòng yì cháng", english: "delivery exception", description: "配送过程中出现的非正常情况，如配送员联系不上、地址错误等。" },
+            { category: "餐饮配送", chinese: "催单", pinyin: "cuī dān", english: "urge order; rush order", description: "顾客联系平台或商家，请求加快订单处理或配送速度。" },
+            { category: "餐饮配送", chinese: "备注", pinyin: "bèi zhù", english: "notes; special instructions", description: "用户在下单时向商家或配送员提供的额外说明。" },
+            { category: "餐饮配送", chinese: "无接触配送", pinyin: "wú jiē chù pèi sòng", english: "contactless delivery", description: "配送员将食物放置在指定地点，避免与顾客直接接触的配送方式。" },
+            { category: "餐饮配送", chinese: "评价", pinyin: "píng jià", english: "rating; review", description: "顾客对食物、商家或配送服务的反馈。" },
+            { category: "餐饮配送", chinese: "好评", pinyin: "hǎo píng", english: "positive review", description: "顾客给出的正面评价。" },
+            { category: "餐饮配送", chinese: "起送价", pinyin: "qǐ sòng jià", english: "minimum order value for delivery", description: "商家提供配送服务的最低订单金额。" },
+            { category: "餐饮配送", chinese: "满减", pinyin: "mǎn jiǎn", english: "full reduction (discount)", description: "订单金额达到一定数额后享受的折扣。" },
+            { category: "餐饮配送", chinese: "优惠券", pinyin: "yōu huì quàn", english: "coupon", description: "用于抵扣订单金额的电子或纸质凭证。" },
+            { category: "餐饮配送", chinese: "高峰期", pinyin: "gāo fēng qī", english: "peak hours", description: "订单量较大的时段，通常配送时间会延长。" }
+        ];
+
+        const grid = document.getElementById('vocabularyGrid');
+        const searchInput = document.getElementById('searchInput');
+        const categoryFiltersContainer = document.getElementById('categoryFilters');
+        const noResults = document.getElementById('noResults');
+        const visibleCountEl = document.getElementById('visibleCount');
+        const totalCountEl = document.getElementById('totalCount');
+
+        let currentCategory = '全部';
+
+        function createCard(item) {
+            const searchTerms = `${item.chinese} ${item.pinyin} ${item.english}`.toLowerCase();
+            
+            return `
+                <div class="card bg-white rounded-lg shadow-sm p-6 flex flex-col relative" data-category="${item.category}" data-search="${searchTerms}">
+                    <h3 class="text-xl font-bold text-gray-900 mb-1">${item.chinese}</h3>
+                    <p class="text-sm text-gray-500 mb-2">${item.pinyin}</p>
+                    <p class="text-md font-semibold text-blue-800 mb-4">${item.english}</p>
+                    <p class="text-gray-700 text-sm flex-grow">${item.description}</p>
+                </div>
+            `;
+        }
+
+        function renderCards() {
+            grid.innerHTML = vocabularyData.map(createCard).join('');
+            totalCountEl.textContent = vocabularyData.length;
+        }
+        
+        function setupCategoryFilters() {
+            const categories = ['全部', ...new Set(vocabularyData.map(item => item.category))];
+            categoryFiltersContainer.innerHTML = categories.map(category => {
+                let buttonClasses = 'filter-btn px-4 py-2 text-sm font-medium rounded-full transition';
+                
+                if (category === '全部') {
+                    buttonClasses += ' bg-blue-600 text-white'; // Default active blue for '全部'
+                } else if (category === '餐饮配送') {
+                    buttonClasses += ' bg-amber-100 text-amber-800 hover:bg-amber-200';
+                } else { // All other categories are package delivery
+                    buttonClasses += ' bg-blue-100 text-blue-800 hover:bg-blue-200';
+                }
+                
+                return `
+                    <button class="${buttonClasses}" data-category="${category}">
+                        ${category}
+                    </button>
+                `;
+            }).join('');
+            
+            // Set initial active state for '全部'
+            const allButton = document.querySelector('.filter-btn[data-category="全部"]');
+            if (allButton) {
+                allButton.classList.add('active');
+            }
+
+            document.querySelectorAll('.filter-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    currentCategory = button.dataset.category;
+                    // Remove active and color classes from all buttons
+                    document.querySelectorAll('.filter-btn').forEach(btn => {
+                        btn.classList.remove('active', 'bg-blue-600', 'text-white', 'bg-amber-600', 'bg-blue-100', 'text-blue-800', 'hover:bg-blue-200', 'bg-amber-100', 'text-amber-800', 'hover:bg-amber-200');
+                        // Reapply default non-active colors
+                        if (btn.dataset.category === '餐饮配送') {
+                            btn.classList.add('bg-amber-100', 'text-amber-800', 'hover:bg-amber-200');
+                        } else {
+                            btn.classList.add('bg-blue-100', 'text-blue-800', 'hover:bg-blue-200');
+                        }
+                    });
+                    
+                    // Apply new active classes based on currentCategory
+                    if (currentCategory === '餐饮配送') {
+                        button.classList.add('active', 'bg-amber-600', 'text-white');
+                    } else { // Includes '全部' and other package categories
+                        button.classList.add('active', 'bg-blue-600', 'text-white');
+                    }
+
+                    filterAndRender();
+                });
+            });
+        }
+
+        function filterAndRender() {
+            const searchTerm = searchInput.value.toLowerCase();
+            let visibleCount = 0;
+
+            document.querySelectorAll('.card').forEach(card => {
+                const isCategoryMatch = currentCategory === '全部' || card.dataset.category === currentCategory;
+                const isSearchMatch = card.dataset.search.includes(searchTerm);
+                
+                if (isCategoryMatch && isSearchMatch) {
+                    card.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            visibleCountEl.textContent = visibleCount;
+            noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCards();
+            setupCategoryFilters();
+            filterAndRender(); 
+            
+            searchInput.addEventListener('input', filterAndRender);
+        });
+    </script>
+</body>
+</html>
